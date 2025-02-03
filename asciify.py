@@ -30,10 +30,14 @@ def hex_to_ansi(hex_color: str) -> str:
 
 
 class Asciify:
-    def __init__(self) -> None:
-        pass
+    # Default set of characters
+    chars = (' ', '.', ';', 'c', 'o', 'P', 'O', '?', '@', '█')
 
-    def resize_image(self, image: np.ndarray, target_width=240, char_aspect_ratio=2, scale_x: float=None, scale_y: float=None):
+    def __init__(self, chars: tuple[str] | list[str] = None) -> None:
+        if chars:
+            self.chars = chars
+
+    def resize_image(self, image: np.ndarray, target_width=240, char_aspect_ratio=2, scale_x: float=None, scale_y: float=None) -> np.ndarray:
         height = image.shape[0] / char_aspect_ratio
         width = image.shape[1]
 
@@ -49,8 +53,7 @@ class Asciify:
 
     def quantize_image(self, image: np.ndarray) -> np.ndarray:
         """Quantize an image to a limited set of characters."""
-        chars = (' ', '.', ';', 'c', 'o', 'P', 'O', '?', '@', '█')
-        num_chars = len(chars)
+        num_chars = len(self.chars)
         bins = np.linspace(0, 255, num_chars + 1)
 
         # Use np.digitize to find the index of the closest bin for each pixel value
@@ -60,7 +63,7 @@ class Asciify:
         indices = np.clip(indices, 0, num_chars - 1)
 
         # Use np.vectorize to apply the chars mapping to the indices
-        return np.vectorize(lambda x: chars[x])(indices)
+        return np.vectorize(lambda x: self.chars[x])(indices)
 
     def invert_image(self, image) -> np.array:
         return 255 - image
@@ -190,8 +193,7 @@ class Asciify:
         start_col = max(0, start_col)
         end_col   = min(ascii_art.shape[1], end_col)
 
-        print(f'Start row: {start_row}, End row: {end_row}, Start col: {start_col}, End col: {end_col}')
-
+        # Ensure the bounding box is valid.
         if start_row >= end_row or start_col >= end_col:
             print(f'{bcolors.FAIL}Bounding box out of range.{bcolors.ENDC}', end='\n\n')
             exit()
@@ -266,7 +268,8 @@ def get_args() -> argparse.Namespace:
 
     # Arguments for asciifying an image
     parser.add_argument('--image', '-i', type=str, required=True, help='Path or URL to the image')
-    parser.add_argument('--width', '-w', type=int, default=240, help='Width of the output ascii art')
+    parser.add_argument('--chars', '-chrs', type=str, nargs='+', default=None, help='Characters to be used for asciifying the image')
+    parser.add_argument('--width', '-w', type=int, default=192, help='Width of the output ascii art')
     parser.add_argument('--fx', '-fx', type=float, default=None, help='Horizontal scaling factor')
     parser.add_argument('--fy', '-fy', type=float, default=None, help='Vertical scaling factor')
     parser.add_argument('--char-ratio', '-chr', type=float, default=2.0, help='Character aspect ratio')
@@ -311,7 +314,7 @@ def main() -> None:
     color_hex = mcolors.CSS4_COLORS[args.color.lower()]
     color_code = hex_to_ansi(color_hex)
 
-    asciify = Asciify()
+    asciify = Asciify(args.chars)
     ascii_art = asciify.asciify(
         args.image, target_width=args.width, char_aspect_ratio=args.char_ratio,  scale_x=args.fx, scale_y=args.fy, invert_colors=args.invert,
         dog_sigma=args.sigma, dog_k=args.k, dog_p=args.p, dog_threshold=args.dog_threshold, edge_threshold=args.edge_threshold
@@ -343,9 +346,9 @@ def main() -> None:
             ascii_str, file_path=file_path, dpi=args.dpi, font_size=args.font_size, bg_color=args.background, color=args.color
         )
     else:
-        print(f'{bcolors.WARNING}No output file specified. To save the ascii art, use the --output (-o) option.{bcolors.ENDC}', end='\n\n')
+        print(f'{bcolors.WARNING}Output not activated. To save the ascii art, use the --output (-o) option.{bcolors.ENDC}', end='\n\n')
 
-    print(f'{color_code}{ascii_str}{bcolors.ENDC}\n')
+    print(f'{color_code}{ascii_str}{bcolors.ENDC}', end='\n\n')
 
 
 if __name__ == '__main__':
